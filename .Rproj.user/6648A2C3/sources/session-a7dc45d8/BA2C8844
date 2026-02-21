@@ -1,9 +1,9 @@
 {
     "id": "BA2C8844",
-    "path": "~/GitHub/Bioinformatics/Script1.R",
-    "project_path": "Script1.R",
+    "path": "~/GitHub/Bioinformatics/LAB6.R",
+    "project_path": "LAB6.R",
     "type": "r_source",
-    "hash": "718644173",
+    "hash": "3411056709",
     "contents": "",
     "dirty": false,
     "created": 1770658655976.0,
@@ -13,15 +13,15 @@
         "tempName": "Untitled1",
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "1,0",
-        "scrollLine": "0"
+        "cursorPosition": "25,69",
+        "scrollLine": "11"
     },
     "folds": "",
-    "lastKnownWriteTime": 1770659049,
+    "lastKnownWriteTime": 1771632201,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1770659049417,
+    "last_content_update": 1771632201,
     "read_only": false,
     "read_only_alternatives": []
 }

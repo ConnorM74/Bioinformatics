@@ -1,0 +1,287 @@
+---
+title: "Advancing Conservation with eDNA"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+# Intro
+
+In this exercise, we will learn how to use **pairwise sequence alignment** to compare sample data to reference data.
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. In the notebook, code is broken into "chunks" separated by text. You can execute the code in a chunk by clicking the *Run* button within the chunk at the top right corner, or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+I usually prefer to use the Settings gear at the top to select *Chunk output in console*.
+Don't forget to **set your working directory** using Session > Set Working Directory. 
+
+# Load in Libraries
+
+First load in useful *libraries*. If you do not have these libraries installed, removing the "#" will un-comment the lines below that install the libraries. Libraries only need to be installed once.
+```{r}
+#install.packages("seqinr", dependencies = TRUE)
+library(seqinr)  
+
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+
+#BiocManager::install("Biostrings")
+library(Biostrings)
+
+#BiocManager::install("pwalign")
+library(pwalign)
+```
+
+# Read in the Data
+
+Let's read in the FASTA files! These files contain synthetic data that were prepared using using real data from NCBI GenBank. You can explore how the synthetic data were created in the supplemental script.
+
+There are 3 files: the reference sequences ("refs"), samples from an unimpeded river ("eDNA_nodam"), and samples downstream from a dam ("eDNA_dam"). 
+```{r}
+refs <- read.fasta("reference_sequences.fasta", as.string = TRUE)
+
+eDNA_dam <- read.fasta("edna_samples_Dam.fasta", as.string = TRUE)
+eDNA_nodam <- read.fasta("edna_samples_noDam.fasta", as.string = TRUE)
+```
+
+# Explore the Data
+
+Let's inspect our files.
+
+What kind of data structure do we get when we read in a FASTA file?
+```{r}
+class(refs)
+```
+The FASTA file is read in as a **list**
+
+What is the internal structure of the object?
+```{r}
+str(refs)
+```
+* List of 2
+* Each element is one sequence
+* Names come from the FASTA headers
+* Sequences are stored as character strings of A, T, C, G
+
+How many sequences are in each file?
+```{r}
+length(refs)
+length(eDNA_dam)
+length(eDNA_nodam)
+```
+We have 2 reference sequences and 4 eDNA samples per site.
+
+FASTA headers become names in R, which help us keep track of samples:
+```{r}
+names(refs)
+names(eDNA_dam)
+names(eDNA_nodam)
+```
+
+DNA sequences are just text! Let's look at one of the reference sequences:
+```{r}
+refs[[1]]
+```
+
+How long is the string?
+```{r}
+nchar(refs[[1]])
+```
+
+Do you expect all of the sequences to be the same length? Why or why not?
+```{r}
+sapply(refs, nchar)
+sapply(eDNA_dam, nchar)
+sapply(eDNA_nodam, nchar)
+```
+
+What is the base composition?
+We split the sequence into individual bases with **strsplit()**
+The command **table()** counts how many of each base we see.
+```{r}
+table(strsplit(refs[[1]], "")[[1]])
+```
+
+If we want to check base composition for all the sequences, we can write a function:
+```{r}
+base_composition <- function(seq) {
+  a <- table(strsplit(seq, "")[[1]])
+  return(a)
+}
+```
+
+Let's try the function out:
+```{r}
+base_composition(refs[[2]])
+```
+
+Apply the function to all the strings in a list
+```{r}
+lapply(eDNA_dam, base_composition)
+#lapply(eDNA_nodam, base_composition)
+```
+
+# Calculate the Similarities between Sequences
+
+## References
+
+How similar are the two reference sequences to each other?
+
+Recall that the two reference sequences have already been trimmed to the same length:
+```{r}
+sapply(refs, nchar)
+```
+
+Let's try crafting a function that will let us compare these sequences, position by position.
+
+A note on **strings** in R: They are character objects that are immutable. You can't view or modify characters by position inside a string, like you can with a vector.
+Two options for working with strings: 
+-Split up the string into individual characters using *strsplit()* and then stitch them back together
+-Use the substring function *substr()* to cut out a part of the string and make a new string
+
+Let's use the first method, split the string up into individual characters, and see how many are the same between the two reference sequences.
+```{r}
+sturgeon_ref_bases <- strsplit(refs[[1]], "")[[1]]
+catfish_ref_bases <- strsplit(refs[[2]], "")[[1]]
+
+matches <- sturgeon_ref_bases == catfish_ref_bases
+matches
+```
+"matches" is a *logical vector*, every position is either True, or False. These are also encoded in R as 1 and 0, respectively. That's why we can use *sum()* to know *how many* matches there are:
+
+```{r}
+sum(matches)
+```
+
+So if we want to know what *percent* of base pairs match, we can divide the number of matches by the length to calculate the **percent identity**:
+```{r}
+percent_identity <- sum(matches)/length(matches)*100
+percent_identity
+```
+
+Let's wrap this into a function:
+```{r}
+pid_function <- function(seq1,seq2){
+  split1 <- strsplit(seq1, "")[[1]]
+  split2 <- strsplit(seq2, "")[[1]]
+  mymatches <- split1 == split2
+  pid <- sum(mymatches)/length(mymatches)*100
+  return(pid)
+}
+```
+
+Test out the percent identity function:
+```{r}
+pid_function(refs[[1]], refs[[2]])
+```
+
+It works!
+
+## Samples
+
+Let's see if we can compare the first eDNA sample to the references using our function:
+```{r}
+pid_function(refs[[1]],eDNA_dam[[1]])
+```
+
+We get a **warning message**!!
+This is because the two sequences are different *lengths*
+So our approach for matching sequences position by position doesn't work when we have strings of different lengths.
+This is because when comparing strings of different lengths, R defaults to "recycling" the short string, repeating it to match the length of the longer vector. This is not useful!
+
+**Pairwise sequence alignment** will give us a better way to compare sequences instead of trying to match them character by character.
+
+# Pairwise Sequence Alignment
+
+Pairwise alignment is a way to compare two sequences by lining up their letters (in this case, A, T, C, and G) to maximize matches and handle insertions or deletions. The underlying algorithms use a *scoring system* to evaluate matches, mismatches, and gaps (insertions or deletions). The algorithms use optimization process to maximize the score, determining the best possible alignment of the sequences.
+
+There are two main approaches to pairwise sequence alignment: Global and Local
+
+Global alignment aims to align the entire lengths of both sequences from start to end. It is most useful for sequences that are similar overall and close to the same length, such as two versions of the same gene.
+
+Local alignment looks for the best-matching subsequences within the two sequences. This is most useful for sequences that are only partially similar or have different lengths, such as finding a conserved motif.
+
+The most common algorithm for global alignment is Needleman-Wunsch and the most common algorithm for local alignment is Smith-Waterman.
+
+Here we use the built-in pairwise alignment functions available in the "pwalign" library (loaded above).
+
+Let's use a **global alignment** to align our reference sequences:
+```{r}
+ref_alignment <- pairwiseAlignment(refs[[1]], refs[[2]], type="global")
+ref_alignment
+```
+
+We can use the built-in function pid() to calculate the percent identity between the two alignments:
+```{r}
+pid(ref_alignment)
+```
+
+How does this differ from the percent identity we calculated above? When do we expect it to be higher/lower/equal?
+
+# Comparing the eDNA samples to the references
+
+Now we have all the tools we need to compare the eDNA samples to our two reference sequences.
+
+We are still using the global (not local) approach to alignment because in this example we have trimmed our reference down to the marker we have amplified in the samples.
+
+```{r}
+sturgeon_ref <- refs[[1]]
+catfish_ref <- refs[[2]]
+```
+
+Let's start with sample_01, and align and calculate percent identity (pid) against both references:
+```{r}
+sample01_align <- pairwiseAlignment(eDNA_dam[[1]], sturgeon_ref, type="global")
+sample01_align
+pid(sample01_align)
+```
+
+```{r}
+sample01_align <- pairwiseAlignment(eDNA_dam[[1]], catfish_ref, type="global")
+sample01_align
+pid(sample01_align)
+```
+
+Which species does the DNA in sample_01 look like it represents?
+
+Now let's do the alignment and calculate percent identity for all of the 8 samples against both references. At the end, we want to have a table of results for all the samples at both sites.
+
+First step, let's make a function that calls pairwiseAlignment() and pid() like we did above
+```{r}
+myPID <- function(eDNA_seq, ref_seq){
+  myalign <- pairwiseAlignment(eDNA_seq, ref_seq, type="global")
+  return(pid(myalign))
+}
+```
+
+Test the function out:
+```{r}
+myPID(eDNA_dam[[1]], catfish_ref)
+```
+
+Now we can use sapply() to apply our function to each element in our list of samples collected in the stream with a dam:
+```{r}
+pid_sturgeon_Dam <- sapply(eDNA_dam, myPID, ref_seq = sturgeon_ref)
+pid_catfish_Dam <- sapply(eDNA_dam, myPID, ref_seq = catfish_ref)
+```
+
+And to our samples collected in the stream without a dam:
+```{r}
+pid_sturgeon_noDam <- sapply(eDNA_nodam, myPID, ref_seq = sturgeon_ref)
+pid_catfish_noDam <- sapply(eDNA_nodam, myPID, ref_seq = catfish_ref)
+```
+
+Combine the results into a neat table of results:
+```{r}
+results_table <- data.frame(
+  SampleID = c(names(pid_sturgeon_Dam), names(pid_sturgeon_noDam)), 
+  Site = rep(c("Dam", "No Dam"), times = c(length(pid_sturgeon_Dam), length(pid_sturgeon_noDam))),
+  PID_to_Sturgeon = c(pid_sturgeon_Dam, pid_sturgeon_noDam),
+  PID_to_Catfish  = c(pid_catfish_Dam, pid_catfish_noDam),
+  row.names = NULL
+)
+
+results_table
+```
+
