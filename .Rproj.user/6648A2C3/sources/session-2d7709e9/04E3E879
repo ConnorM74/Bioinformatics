@@ -1,24 +1,24 @@
 {
-    "id": "8FD0DE80",
-    "path": "~/GitHub/Bioinformatics/FCA917.fasta",
-    "project_path": "FCA917.fasta",
+    "id": "04E3E879",
+    "path": "~/GitHub/Bioinformatics/MidtermSeqs.fasta",
+    "project_path": "MidtermSeqs.fasta",
     "type": "text",
     "hash": "0",
     "contents": "",
     "dirty": false,
-    "created": 1770828467517.0,
+    "created": 1771844142765.0,
     "source_on_save": false,
-    "relative_order": 7,
+    "relative_order": 4,
     "properties": {
         "source_window_id": "",
         "Source": "Source"
     },
     "folds": "",
-    "lastKnownWriteTime": 1770826625,
+    "lastKnownWriteTime": 1771843806,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1770826625,
+    "last_content_update": 1771843806,
     "read_only": false,
     "read_only_alternatives": []
 }

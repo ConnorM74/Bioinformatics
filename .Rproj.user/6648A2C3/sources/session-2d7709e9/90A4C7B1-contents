@@ -1,0 +1,4 @@
+MidConVec <- strsplit(MidCon, "")[[1]]  
+gc <- sum(MidConVec %in% c("G", "C"))  
+gc_content <- gc / length(MidConVec)  
+gcPercent <- gc_content*100
